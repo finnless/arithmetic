@@ -13,9 +13,14 @@ grammar = r"""
         | sum "+" product   -> add
         | sum "-" product   -> sub
 
-    ?product: atom
-        | product "*" atom  -> mul
-        | product "/" atom  -> div
+    ?product: exponentiation
+        | product "*" exponentiation  -> mul
+        | product "/" exponentiation  -> div
+        | product "%" exponentiation  -> mod
+        | product "(" sum ")"  -> paren_mul
+    
+    ?exponentiation: atom
+        | exponentiation "**" atom -> exp
 
     ?atom: NUMBER           -> number
         | "(" sum ")"       -> paren
@@ -128,6 +133,48 @@ class Interpreter(lark.visitors.Interpreter):
     36
     '''
 
+    # parameters for these methods slightly different from Simplifier
+    # tree contains the entire subtree at that point, not just the children
+
+    def start(self, tree):
+        return self.visit(tree.children[0])
+    
+    def add(self, tree):
+        v0 = self.visit(tree.children[0])
+        v1 = self.visit(tree.children[1])
+        return v0 + v1
+    
+    def sub(self, tree):
+        v0 = self.visit(tree.children[0])
+        v1 = self.visit(tree.children[1])
+        return v0 - v1
+    
+    def mul(self, tree):
+        v0 = self.visit(tree.children[0])
+        v1 = self.visit(tree.children[1])
+        return v0 * v1
+    
+    def mod(self, tree):
+        v0 = self.visit(tree.children[0])
+        v1 = self.visit(tree.children[1])
+        return v0 % v1
+    
+    def paren_mul(self, tree):
+        v0 = self.visit(tree.children[0])
+        v1 = self.visit(tree.children[1])
+        return v0 * v1
+    
+    def exp(self, tree):
+        v0 = self.visit(tree.children[0])
+        v1 = self.visit(tree.children[1])
+        return int(v0 ** v1)
+    
+    def number(self, tree):
+        return int(tree.children[0].value)
+    
+    def paren(self, tree):
+        return self.visit(tree.children[0])
+
 
 class Simplifier(lark.Transformer):
     '''
@@ -226,12 +273,165 @@ class Simplifier(lark.Transformer):
     >>> simplifier.transform(parser.parse("(1+2)(3(4))"))
     36
     '''
+    # TODO Missing division?
+
+    def start(self, children):
+        return children[0]
+    
+    def add(self, children):
+        return children[0] + children[1]
+    
+    def sub(self, children):
+        return children[0] - children[1]
+    
+    def mul(self, children):
+        return children[0] * children[1]
+    
+    def mod(self, children):
+        return children[0] % children[1]
+    
+    def paren_mul(self, children):
+        return children[0] * children[1]
+    
+    def exp(self, children):
+        return int(children[0] ** children[1])
+    
+    def number(self, children):
+        return int(children[0].value)
+    
+    def paren(self, children):
+        return children[0]
+
+# TODO cleanup
+# # test simplifier
+
+# tree = parser.parse("(1 + 2)*3")
+# print(tree.pretty())
+
+# out = Simplifier().transform(tree)
+# print(out)
 
 
 ########################################
 # other transformations
 ########################################
 
+class RemoveUnnecessaryParentheses(lark.Transformer):
+    def _add_paren(self, children):
+        '''
+        Add parentheses to the children if they are needed.
+        They are needed if there are operations within the children.
+        '''
+        # TODO try implementing
+
+    def start(self, children):
+        return children[0]
+    
+    def sum(self, children):
+        return children
+
+    def mul(self, children):
+        # for each child, if it is a number, don't add parens
+        # if it is an operation, add parens
+        print("product")
+        import code; code.interact(local=locals())
+        left, right = children
+        if isinstance(left, lark.Tree):
+            # add parens
+            pass
+        if isinstance(right, lark.Tree):
+            pass
+        
+    
+    def mod(self, children):
+        pass
+        # return children[0] % children[1]
+    
+    def paren_mul(self, children):
+        pass
+        # return children[0] * children[1]
+    
+    def exp(self, children):
+        pass
+        # return int(children[0] ** children[1])
+    
+    def number(self, children):
+        return children[0]
+    
+    def paren(self, children):
+        return children[0]
+
+
+
+
+
+    # Old function
+
+    # def _add_paren(self, children):
+    #     '''
+    #     Add parentheses to the children if they are needed.
+    #     They are needed if there are operations within the children.
+    #     '''
+    #     # TODO try implementing
+
+    # def start(self, children):
+    #     return children[0]
+    
+    # def paren(self, children):
+    #     # TODO implement
+    #     # going to try an approach where parens are only removed
+    #     # if the children is a NUMBER
+    #     pass
+
+    # def sum(self, children):
+    #     return children
+
+
+    # def paren_mul(self, children):
+    #     # TODO
+    #     # print("paren_mul")
+    #     # import code; code.interact(local=locals())
+    #     return children
+
+    # def exponentiation(self, children):
+    #     return children
+
+    # def atom(self, children):
+    #     return children
+
+    # def number(self, children):
+    #     return children[0]
+
+class ASTToString(lark.Transformer):
+    def start(self, children):
+        return children[0]
+    
+    def add(self, children):
+        return f"{children[0]}+{children[1]}"
+
+    def sub(self, children):
+        return f"{children[0]}-{children[1]}"
+
+    def mul(self, children):
+        return f"{children[0]}*{children[1]}"
+
+    def div(self, children):
+        return f"{children[0]}/{children[1]}"
+
+    def mod(self, children):
+        return f"{children[0]}%{children[1]}"
+
+    def exp(self, children):
+        return f"{children[0]}**{children[1]}"
+
+    def paren(self, children):
+        return f"({children[0]})"
+    
+    def paren_mul(self, children):
+        return f"({children[0]})"
+
+    def number(self, children):
+        return str(children[0])
 
 def minify(expr):
     '''
@@ -283,6 +483,25 @@ def minify(expr):
     '1+2*3+4*(5+6-7)'
     '''
 
+    # Parse the expression into an AST
+    tree = parser.parse(expr)
+    print(tree.pretty())
+    print(tree)
+
+    # Remove unnecessary parentheses
+    tree = RemoveUnnecessaryParentheses().transform(tree)
+    print(tree.pretty())
+
+    # Convert the AST to a minified string
+    minified_expr = ASTToString().transform(tree)
+
+    return minified_expr
+
+
+# TODO: pick up here. try this on simplifier. inspect tree using pretty print.
+# then prety print on minify to understand the tree structure and how to catch case.
+out = minify("(1 + 2)*3")
+print(out)
 
 def infix_to_rpn(expr):
     '''
