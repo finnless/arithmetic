@@ -317,90 +317,42 @@ class Simplifier(lark.Transformer):
 ########################################
 
 class RemoveUnnecessaryParentheses(lark.Transformer):
-    def _add_paren(self, children):
-        '''
-        Add parentheses to the children if they are needed.
-        They are needed if there are operations within the children.
-        '''
-        # TODO try implementing
+
+    # TODO other ops
 
     def start(self, children):
-        return children[0]
+        return lark.Tree('start', children)
     
-    def sum(self, children):
-        return children
+    def _handle_sum(self, children):
+        new_children = []
+        for child in children:
+            if (isinstance(child, lark.Tree) and 
+                child.data == 'paren' and 
+                child.children[0].data in ['add', 'sub']):
+                new_children.append(child.children[0])
+            else:
+                new_children.append(child)
+        return new_children
 
+    def add(self, children):
+        return lark.Tree('add', self._handle_sum(children))
+    
+    def sub(self, children):
+        return lark.Tree('sub', self._handle_sum(children))
+    
     def mul(self, children):
-        # for each child, if it is a number, don't add parens
-        # if it is an operation, add parens
-        print("product")
-        import code; code.interact(local=locals())
-        left, right = children
-        if isinstance(left, lark.Tree):
-            # add parens
-            pass
-        if isinstance(right, lark.Tree):
-            pass
-        
-    
-    def mod(self, children):
-        pass
-        # return children[0] % children[1]
-    
-    def paren_mul(self, children):
-        pass
-        # return children[0] * children[1]
-    
-    def exp(self, children):
-        pass
-        # return int(children[0] ** children[1])
+        return lark.Tree('mul', children)
     
     def number(self, children):
-        return children[0]
+        return lark.Tree('number', children)
     
     def paren(self, children):
-        return children[0]
-
-
-
-
-
-    # Old function
-
-    # def _add_paren(self, children):
-    #     '''
-    #     Add parentheses to the children if they are needed.
-    #     They are needed if there are operations within the children.
-    #     '''
-    #     # TODO try implementing
-
-    # def start(self, children):
-    #     return children[0]
-    
-    # def paren(self, children):
-    #     # TODO implement
-    #     # going to try an approach where parens are only removed
-    #     # if the children is a NUMBER
-    #     pass
-
-    # def sum(self, children):
-    #     return children
-
-
-    # def paren_mul(self, children):
-    #     # TODO
-    #     # print("paren_mul")
-    #     # import code; code.interact(local=locals())
-    #     return children
-
-    # def exponentiation(self, children):
-    #     return children
-
-    # def atom(self, children):
-    #     return children
-
-    # def number(self, children):
-    #     return children[0]
+        inner_expr = children[0]
+        if inner_expr.data == 'number':
+            return inner_expr
+        if inner_expr.data in ['add', 'sub']:
+            return lark.Tree('paren', children)
+        return inner_expr
 
 class ASTToString(lark.Transformer):
     def start(self, children):
@@ -483,25 +435,11 @@ def minify(expr):
     '1+2*3+4*(5+6-7)'
     '''
 
-    # Parse the expression into an AST
     tree = parser.parse(expr)
-    print(tree.pretty())
-    print(tree)
-
-    # Remove unnecessary parentheses
-    tree = RemoveUnnecessaryParentheses().transform(tree)
-    print(tree.pretty())
-
-    # Convert the AST to a minified string
-    minified_expr = ASTToString().transform(tree)
-
+    transformed_tree = RemoveUnnecessaryParentheses().transform(tree)
+    minified_expr = ASTToString().transform(transformed_tree)
     return minified_expr
 
-
-# TODO: pick up here. try this on simplifier. inspect tree using pretty print.
-# then prety print on minify to understand the tree structure and how to catch case.
-out = minify("(1 + 2)*3")
-print(out)
 
 def infix_to_rpn(expr):
     '''
