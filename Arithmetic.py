@@ -302,15 +302,6 @@ class Simplifier(lark.Transformer):
     def paren(self, children):
         return children[0]
 
-# TODO cleanup
-# # test simplifier
-
-# tree = parser.parse("(1 + 2)*3")
-# print(tree.pretty())
-
-# out = Simplifier().transform(tree)
-# print(out)
-
 
 ########################################
 # other transformations
@@ -441,6 +432,38 @@ def minify(expr):
     return minified_expr
 
 
+class InfixToRPN(lark.Transformer):
+    def start(self, children):
+        return self._flatten_rpn(children[0])
+    
+    def number(self, children):
+        return [str(children[0].value)]
+    
+    def add(self, children):
+        left = self._flatten_rpn(children[0])
+        right = self._flatten_rpn(children[1])
+        return left + right + ['+']
+
+    def sub(self, children):
+        left = self._flatten_rpn(children[0])
+        right = self._flatten_rpn(children[1])
+        return left + right + ['-']
+    
+    def mul(self, children):
+        left = self._flatten_rpn(children[0])
+        right = self._flatten_rpn(children[1])
+        return left + right + ['*']
+    
+    def paren(self, children):
+        return self._flatten_rpn(children[0])
+    
+    def _flatten_rpn(self, tree):
+        if isinstance(tree, list):
+            return tree
+        if isinstance(tree, str):
+            return [tree]
+        return tree
+
 def infix_to_rpn(expr):
     '''
     This function takes an expression in standard infix notation and converts it into an expression in reverse polish notation.
@@ -469,6 +492,9 @@ def infix_to_rpn(expr):
     '1 2 * 3 + 4 5 6 - * +'
     '''
 
+    tree = parser.parse(expr)
+    rpn_expr = InfixToRPN().transform(tree)
+    return ' '.join(rpn_expr)
 
 def eval_rpn(expr):
     '''
